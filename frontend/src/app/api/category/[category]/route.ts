@@ -15,23 +15,22 @@ export async function GET(
       queryCategory = '#' + queryCategory;
     }
 
-    // Get the latest timestamp from the DB
-    const latestRes = await db.execute("SELECT timestamp FROM trending_articles ORDER BY timestamp DESC LIMIT 1");
-    if (latestRes.rows.length === 0) {
-      return NextResponse.json({ articles: [], lastUpdated: null });
-    }
-    const latestTimestamp = latestRes.rows[0].timestamp;
-
+    // Get the most recent articles for THIS specific category from the last 24 hours
     const result = await db.execute({
       sql: `SELECT * FROM trending_articles 
-            WHERE timestamp = ? AND LOWER(category) = LOWER(?) 
-            ORDER BY rank ASC`,
-      args: [latestTimestamp, queryCategory.trim()]
+            WHERE LOWER(category) = LOWER(?) 
+            AND timestamp > datetime('now', '-1 day')
+            ORDER BY timestamp DESC, rank ASC 
+            LIMIT 50`,
+      args: [queryCategory.trim()]
     });
+
+    // Use the latest timestamp from the category results as the 'last updated' for this view
+    const lastUpdated = result.rows.length > 0 ? (result.rows[0].timestamp as string) : null;
 
     return NextResponse.json({
       articles: result.rows,
-      lastUpdated: latestTimestamp,
+      lastUpdated: lastUpdated,
     });
   } catch (error) {
     console.error("Failed to fetch category data from Turso:", error);

@@ -19,8 +19,13 @@ const CATEGORIES = [
 
 // ─── Helper: Dynamic Image ───────────────────────────────────────
 function getDynamicImage(title: string, context: string) {
-    const prompt = `${title} ${context} high quality cinematic photography bloomberg terminal aesthetic`;
-    return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=800&height=800&nologo=true`;
+    // Add a unique salt based on title length to prevent caching/duplicate vibes
+    const salt = title.length % 5;
+    const styles = ["hyper-realistic", "cinematic lighting", "minimalist editorial", "abstract digital art", "high-contrast 4k"];
+    const style = styles[salt];
+    
+    const prompt = `${title}, ${context}, ${style}, award-winning photography, bloomberg terminal 2025 aesthetic, sharp details, vibrant colors`;
+    return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1080&height=1350&nologo=true&seed=${Math.floor(Math.random() * 10000)}`;
 }
 
 interface Article {
@@ -100,19 +105,19 @@ async function enrichArticles(articles: Article[]): Promise<Article[]> {
                 if (uData.results?.[0]) imageUrl = uData.results[0].urls.regular;
             }
 
-            // Pollinations fallback
             if (!imageUrl) {
-                imageUrl = getDynamicImage(title, article.category || "trending");
+                imageUrl = getDynamicImage(title, article.category || "trending topics global");
             }
 
             enriched.push({
                 ...article,
                 originalimage: imageUrl,
                 thumbnail: imageUrl,
-                description: `Trending news about ${title}. Viral momentum detected on Wikipedia.`
+                description: `Strategic intelligence report: ${title}. High viral momentum detected across global data networks.`
             });
         } catch (e) {
-            enriched.push({ ...article, originalimage: getDynamicImage(title, "trending"), thumbnail: null });
+            const fallbackImg = getDynamicImage(title, "global event architecture");
+            enriched.push({ ...article, originalimage: fallbackImg, thumbnail: fallbackImg });
         }
     }
     return enriched;
