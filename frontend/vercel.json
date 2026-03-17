@@ -3,5 +3,11 @@
   "outputDirectory": ".next",
   "installCommand": "npm install",
   "framework": "nextjs",
-  "regions": ["bom1"]
+  "regions": ["bom1"],
+  "crons": [
+    {
+      "path": "/api/cron/scrape",
+      "schedule": "0,30 * * * *"
+    }
+  ]
 }

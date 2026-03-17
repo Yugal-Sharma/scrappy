@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// Initialize Gemini SDK
-// It will automatically use process.env.GEMINI_API_KEY
-const ai = new GoogleGenAI({});
+// Initialize Gemini SDK with API Key
+const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
 export async function POST(req: Request) {
   let title;
@@ -20,10 +19,9 @@ export async function POST(req: Request) {
 
     const prompt = `Give a one-sentence witty explanation of why the Wikipedia article for "${title}" might be trending or viral right now. Keep it brief and engaging.`;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
-    });
+    const model = ai.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
 
     return NextResponse.json({
       insight: response.text || "No insights available right now.",
