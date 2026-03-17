@@ -3,7 +3,7 @@ require("dotenv").config();
 const { GoogleGenAI } = require("@google/genai");
 
 const USER_AGENT =
-  "WikiTrendingScraper/2.0 (https://github.com/scraper; contact@example.com)";
+  "WikiTrendingScraper/3.0 (https://github.com/scraper; contact@example.com)";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
@@ -13,7 +13,9 @@ async function categorizeArticlesBatch(articles) {
   }
 
   const titles = articles.map((a) => a.article.replace(/_/g, " "));
-  const prompt = `Categorize the following Wikipedia article titles into ONE of the following tags: #Geopolitics, #Entertainment, #Science, #WorldNews, #Sports, #Technology, #History, #General. Return ONLY a valid JSON array of strings in the exact same order as the input list.
+  const prompt = `Categorize the following Wikipedia article titles into ONE of the following strict tags ONLY: 
+#Geopolitics, #TradeAndTariffs, #SecurityAndTerrorism, #GlobalTourism, #Entertainment, #Science, #General.
+Return ONLY a valid JSON array of strings in the exact same order as the input list.
 
 Titles:
 ${JSON.stringify(titles)}`;
@@ -25,12 +27,10 @@ ${JSON.stringify(titles)}`;
     });
 
     let rawText = response.text || "[]";
-    // Clean up markdown formatting if present
     rawText = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
     
     const categories = JSON.parse(rawText);
     
-    // Ensure we match length
     if (Array.isArray(categories) && categories.length === articles.length) {
       return articles.map((a, i) => ({ ...a, category: categories[i] }));
     }
@@ -45,7 +45,6 @@ async function fetchTrendingArticles() {
   try {
     const db = await getDb();
 
-    // Use yesterday's date since today's data may be incomplete
     const now = new Date();
     const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     const year = yesterday.getUTCFullYear();
@@ -68,8 +67,6 @@ async function fetchTrendingArticles() {
     const articles = data.items[0].articles.slice(0, 50);
 
     const timestamp = new Date().toISOString();
-
-    // Check if we already have data for this 30-min window
     const windowStart = new Date(
       Math.floor(now.getTime() / (30 * 60 * 1000)) * (30 * 60 * 1000)
     ).toISOString();
@@ -84,15 +81,12 @@ async function fetchTrendingArticles() {
       return;
     }
 
-    // AI Categorization Batch
-    console.log(`[Agent] Prompting LLM to categorize ${articles.length} viral posts...`);
+    console.log(`[Agent] Prompting LLM to categorize ${articles.length} viral posts into specific Intelligence subsets...`);
     const categorizedArticles = await categorizeArticlesBatch(articles);
 
-    // Fetch summaries for top articles (get thumbnails and descriptions)
-    console.log(`[Scraper] Enriching articles with Wikipedia high-res images...`);
+    console.log(`[Scraper] Enriching articles with Wikipedia high-res pageimages...`);
     const enrichedArticles = await enrichArticles(categorizedArticles);
 
-    // Insert all articles
     const stmt = db.prepare(`
       INSERT INTO trending_articles (title, views, rank, timestamp, article_url, thumbnail_url, originalimage_url, description, category)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -120,7 +114,7 @@ async function fetchTrendingArticles() {
     saveDb();
 
     console.log(
-      `[Scraper] Successfully stored ${enrichedArticles.length} articles with metadata & AI categories at ${timestamp}`
+      `[Scraper] Successfully stored ${enrichedArticles.length} articles with high-res metadata & strict AI tags at ${timestamp}`
     );
   } catch (error) {
     console.error(`[Scraper] Error: ${error.message}`);
@@ -133,33 +127,50 @@ async function enrichArticles(articles) {
 
   for (let i = 0; i < articles.length; i += batchSize) {
     const batch = articles.slice(i, i + batchSize);
+    
+    // First, get descriptions via summary API
     const promises = batch.map(async (article) => {
       try {
-        if (
-          article.article.startsWith("Special:") ||
-          article.article === "Main_Page"
-        ) {
+        if (article.article.startsWith("Special:") || article.article === "Main_Page") {
           return { ...article, thumbnail: null, originalimage: null, description: null };
         }
 
         const summaryUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(article.article)}`;
-        const res = await fetch(summaryUrl, {
-          headers: { "Api-User-Agent": USER_AGENT },
-        });
+        const res = await fetch(summaryUrl, { headers: { "Api-User-Agent": USER_AGENT } });
+        
+        let desc = null;
+        let thumbUrl = null;
+        let originalUrl = null;
 
         if (res.ok) {
           const summary = await res.json();
-          return {
-            ...article,
-            thumbnail: summary.thumbnail?.source || null,
-            originalimage: summary.originalimage?.source || summary.thumbnail?.source || null,
-            description: summary.extract
-              ? summary.extract.substring(0, 200)
-              : null,
-          };
+          desc = summary.extract ? summary.extract.substring(0, 200) : null;
+          thumbUrl = summary.thumbnail?.source || null;
         }
-        return { ...article, thumbnail: null, originalimage: null, description: null };
-      } catch {
+
+        // Now, strictly get the high-res original image using the action=query API
+        // This bypassed the crop constraints of the summary endpoint.
+        const queryUrl = `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(article.article)}&prop=pageimages&piprop=original&format=json`;
+        const qRes = await fetch(queryUrl, { headers: { "Api-User-Agent": USER_AGENT } });
+        
+        if (qRes.ok) {
+           const qData = await qRes.json();
+           const pages = qData.query?.pages;
+           if (pages) {
+             const pageId = Object.keys(pages)[0];
+             if (pageId && pages[pageId].original && pages[pageId].original.source) {
+                 originalUrl = pages[pageId].original.source;
+             }
+           }
+        }
+
+        return {
+          ...article,
+          thumbnail: thumbUrl,
+          originalimage: originalUrl || thumbUrl,
+          description: desc,
+        };
+      } catch (err) {
         return { ...article, thumbnail: null, originalimage: null, description: null };
       }
     });

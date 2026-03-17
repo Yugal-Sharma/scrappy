@@ -12,6 +12,8 @@ const playfair = Playfair_Display({
   subsets: ["latin"],
 });
 
+import { Sidebar } from "@/components/ui/sidebar";
+
 export const metadata: Metadata = {
   title: "Wikipedia Discovery Hub",
   description: "A magazine-style viral Wikipedia scraper dashboard.",
@@ -27,7 +29,12 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${playfair.variable} antialiased bg-[#0a0a0a] text-zinc-100 font-sans min-h-screen`}
       >
-        {children}
+        <div className="flex min-h-screen">
+          <Sidebar />
+          <main className="flex-1 overflow-x-hidden">
+            {children}
+          </main>
+        </div>
       </body>
     </html>
   );

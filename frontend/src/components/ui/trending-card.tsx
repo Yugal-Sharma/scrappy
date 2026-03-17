@@ -15,12 +15,11 @@ interface TrendingCardProps {
 
 const CATEGORY_IMAGES: Record<string, string> = {
   "#Geopolitics": "https://images.unsplash.com/photo-1529107386315-e1c73906504e?q=80&w=800",
+  "#TradeAndTariffs": "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?q=80&w=800",
+  "#SecurityAndTerrorism": "https://images.unsplash.com/photo-1555861496-0666c8981751?q=80&w=800",
+  "#GlobalTourism": "https://images.unsplash.com/photo-1488646953014-85cb44e25828?q=80&w=800",
   "#Entertainment": "https://images.unsplash.com/photo-1603190287605-e6ade32fa852?q=80&w=800",
   "#Science": "https://images.unsplash.com/photo-1532094349884-543bc11b234d?q=80&w=800",
-  "#WorldNews": "https://images.unsplash.com/photo-1495020689067-958852a7765e?q=80&w=800",
-  "#Sports": "https://images.unsplash.com/photo-1461896836934-ffe607ba8211?q=80&w=800",
-  "#Technology": "https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=800",
-  "#History": "https://images.unsplash.com/photo-1461360370896-922624d12aa1?q=80&w=800",
   "#General": "https://images.unsplash.com/photo-1457369804613-52c61a468e7d?q=80&w=800",
 };
 

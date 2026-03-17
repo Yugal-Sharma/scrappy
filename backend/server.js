@@ -112,6 +112,55 @@ app.get("/api/trending", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch trending articles" });
   }
 });
+// Get latest trending articles for a specific category
+app.get("/api/category/:category", async (req, res) => {
+  try {
+    const db = await getDb();
+    const { category } = req.params;
+    
+    // First find the latest timestamp, or 30-min window constraint
+    const latestResult = db.exec(
+      "SELECT timestamp FROM trending_articles ORDER BY timestamp DESC LIMIT 1"
+    );
+
+    if (latestResult.length === 0 || !latestResult[0].values.length) {
+      return res.json({ articles: [], lastUpdated: null });
+    }
+
+    const latestTimestamp = latestResult[0].values[0][0];
+    
+    let queryCategory = category;
+    if (!queryCategory.startsWith('#')) {
+      queryCategory = '#' + queryCategory;
+    }
+
+    const articlesResult = db.exec(
+      "SELECT id, title, views, rank, timestamp, article_url, thumbnail_url, originalimage_url, description, category FROM trending_articles WHERE timestamp = ? AND category = ? ORDER BY rank ASC",
+      [latestTimestamp, queryCategory]
+    );
+
+    if (articlesResult.length === 0 || !articlesResult[0].values.length) {
+      return res.json({ articles: [], lastUpdated: latestTimestamp });
+    }
+
+    const columns = articlesResult[0].columns;
+    const articles = articlesResult[0].values.map((row) => {
+      const article = {};
+      columns.forEach((col, index) => {
+        article[col] = row[index];
+      });
+      return article;
+    });
+
+    res.json({
+      articles,
+      lastUpdated: latestTimestamp,
+    });
+  } catch (error) {
+    console.error("Error fetching category articles:", error);
+    res.status(500).json({ error: "Failed to fetch articles" });
+  }
+});
 
 // Historical views for sparklines 
 app.get("/api/article/:title/history", async (req, res) => {
