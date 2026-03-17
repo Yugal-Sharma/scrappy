@@ -65,9 +65,21 @@ async function categorizeArticlesBatch(articles: Article[]): Promise<Article[]> 
             const catMap = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
 
             return articles.map(a => {
-                const title = a.article.replace(/_/g, " ");
-                let assigned = catMap[title] || "#General";
-                if (!CATEGORIES.includes(assigned)) assigned = "#General";
+                const title = a.article.replace(/_/g, " ").trim().toLowerCase();
+                
+                // Flexible match: find the key in catMap that best matches the title
+                const matchedKey = Object.keys(catMap).find(key => 
+                    key.toLowerCase().trim() === title || 
+                    title.includes(key.toLowerCase().trim()) || 
+                    key.toLowerCase().trim().includes(title)
+                );
+
+                let assigned = matchedKey ? catMap[matchedKey] : "#General";
+                
+                // Ensure assigned category is valid (case-insensitive)
+                const validCategory = CATEGORIES.find(c => c.toLowerCase() === assigned.toLowerCase());
+                assigned = validCategory || "#General";
+                
                 return { ...a, category: assigned };
             });
         } catch (err) {
