@@ -212,5 +212,3 @@ export async function GET(req: Request) {
         return NextResponse.json({ success: false, error: error instanceof Error ? error.message : "Unknown error" }, { status: 500 });
     }
 }
-/ /   P r o d u c t i o n   T r i g g e r :   0 3 / 1 7 / 2 0 2 6   1 9 : 4 4 : 3 3  
- 
