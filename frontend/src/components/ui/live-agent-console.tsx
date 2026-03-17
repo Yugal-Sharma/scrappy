@@ -10,20 +10,17 @@ interface LogMessage {
 }
 
 export function LiveAgentConsole() {
-  const [logs, setLogs] = useState<LogMessage[]>([]);
-  const [isConnected, setIsConnected] = useState(false);
+  const [logs] = useState<LogMessage[]>([
+    { type: "info", message: "System initialized in Serverless Mode.", timestamp: new Date().toISOString() },
+    { type: "info", message: "Database: Cloud Turso (libsql) Connected.", timestamp: new Date().toISOString() },
+    { type: "info", message: "Scheduler: Vercel Cron (Daily) Active.", timestamp: new Date().toISOString() },
+    { type: "info", message: "Ready for global intelligence harvesting.", timestamp: new Date().toISOString() },
+  ]);
+  const [isConnected] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // In Serverless mode (Vercel), we don't have a persistent WebSocket.
-    // We show the system status instead.
-    setIsConnected(true);
-    setLogs([
-      { type: "info", message: "System initialized in Serverless Mode.", timestamp: new Date().toISOString() },
-      { type: "info", message: "Database: Cloud Turso (libsql) Connected.", timestamp: new Date().toISOString() },
-      { type: "info", message: "Scheduler: Vercel Cron (30m interval) Active.", timestamp: new Date().toISOString() },
-      { type: "info", message: "Ready for global intelligence harvesting.", timestamp: new Date().toISOString() },
-    ]);
+    // Initial logs are already set in state
   }, []);
 
   // Auto-scroll to bottom of terminal

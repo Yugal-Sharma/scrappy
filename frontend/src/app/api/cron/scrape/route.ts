@@ -4,7 +4,7 @@ import yahooFinance from "yahoo-finance2";
 import Parser from "rss-parser";
 import { db, initTursoTables } from "@/lib/turso";
 
-const parser = new Parser();
+// const parser = new Parser();
 const USER_AGENT = "WikiTrendingScraper/4.0 (Vercel Serverless; contact@example.com)";
 
 const CATEGORIES = [
@@ -23,8 +23,18 @@ function getDynamicImage(title: string, context: string) {
     return `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=800&height=800&nologo=true`;
 }
 
+interface Article {
+    article: string;
+    views?: number;
+    category?: string;
+    originalimage?: string | null;
+    thumbnail?: string | null;
+    description?: string | null;
+    article_url?: string;
+}
+
 // ─── Phase 1: LLM Categorization ─────────────────────────────────
-async function categorizeArticlesBatch(articles: any[]) {
+async function categorizeArticlesBatch(articles: Article[]): Promise<Article[]> {
     if (process.env.GEMINI_API_KEY) {
         try {
             const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
@@ -66,11 +76,11 @@ async function categorizeArticlesBatch(articles: any[]) {
 }
 
 // ─── Phase 2: Image Enrichment ───────────────────────────────────
-async function enrichArticles(articles: any[]) {
-    const enriched = [];
+async function enrichArticles(articles: Article[]): Promise<Article[]> {
+    const enriched: Article[] = [];
     for (const article of articles) {
         const title = article.article.replace(/_/g, " ");
-        let imageUrl = null;
+        let imageUrl: string | null = null;
 
         try {
             // Wikipedia lookup
@@ -78,10 +88,10 @@ async function enrichArticles(articles: any[]) {
                 `https://en.wikipedia.org/w/api.php?action=query&prop=pageimages&format=json&piprop=original&titles=${encodeURIComponent(article.article)}`,
                 { headers: { "Api-User-Agent": USER_AGENT } }
             );
-            const data = await wikiRes.json();
+            const data = await wikiRes.json() as { query?: { pages?: Record<string, { original?: { source: string } }> } };
             const pages = data.query?.pages || {};
-            const page: any = Object.values(pages)[0];
-            imageUrl = page?.original?.source;
+            const page = Object.values(pages)[0];
+            imageUrl = page?.original?.source || null;
 
             // Unsplash fallback
             if (!imageUrl && process.env.UNSPLASH_ACCESS_KEY) {
@@ -92,7 +102,7 @@ async function enrichArticles(articles: any[]) {
 
             // Pollinations fallback
             if (!imageUrl) {
-                imageUrl = getDynamicImage(title, article.category);
+                imageUrl = getDynamicImage(title, article.category || "trending");
             }
 
             enriched.push({
@@ -109,14 +119,18 @@ async function enrichArticles(articles: any[]) {
 }
 
 // ─── Phase 3: External Sources ───────────────────────────────────
-async function fetchExternalSources() {
-    const external = [];
+async function fetchExternalSources(): Promise<Article[]> {
+    const external: Article[] = [];
     
     // 1. Yahoo Finance
     try {
         const symbols = ["NVDA", "AAPL", "MSFT", "TSLA", "BTC-USD"];
         for (const sym of symbols) {
-            const quote: any = await yahooFinance.quote(sym);
+            const quote = await yahooFinance.quote(sym) as { 
+              shortName?: string, 
+              regularMarketPrice?: number, 
+              regularMarketChangePercent?: number 
+            };
             const title = `${sym} Market Shift: ${quote.shortName || sym} volatility`;
             const img = getDynamicImage(title, "Corporate Finance Wall Street");
             external.push({
@@ -154,10 +168,10 @@ export async function GET(req: Request) {
         
         const wikiUrl = `https://wikimedia.org/api/rest_v1/metrics/pageviews/top/en.wikipedia/all-access/${year}/${month}/${day}`;
         const res = await fetch(wikiUrl, { headers: { "Api-User-Agent": USER_AGENT } });
-        const data = await res.json();
+        const data = await res.json() as { items?: { articles: { article: string, views: number }[] }[] };
         
-        const wikiArticles = data.items?.[0]?.articles
-            .filter((a: any) => a.article !== "Main_Page" && !a.article.includes("Special:"))
+        const wikiArticles: Article[] = data.items?.[0]?.articles
+            .filter((a) => a.article !== "Main_Page" && !a.article.includes("Special:"))
             .slice(0, 50) || [];
 
         // 2. Process
@@ -171,7 +185,7 @@ export async function GET(req: Request) {
         // 3. Batch Save to Turso
         for (let i = 0; i < allArticles.length; i++) {
             const item = allArticles[i];
-            const title = item.article || item.title;
+            const title = item.article;
             const cleanTitle = title.replace(/_/g, " ");
 
             await db.execute({
@@ -193,8 +207,8 @@ export async function GET(req: Request) {
         }
 
         return NextResponse.json({ success: true, count: allArticles.length });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Scraper failed:", error);
-        return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+        return NextResponse.json({ success: false, error: error instanceof Error ? error.message : "Unknown error" }, { status: 500 });
     }
 }
