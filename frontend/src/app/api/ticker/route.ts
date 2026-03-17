@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/turso";
+import { db, initTursoTables } from "@/lib/turso";
 
 export async function GET() {
   try {
-    // Attempt to get unique titles from the last 24 hours to use as high-momentum ticker items
+    // Ensure tables exist before querying
+    await initTursoTables();
     const result = await db.execute(`
       SELECT DISTINCT title 
       FROM trending_articles 

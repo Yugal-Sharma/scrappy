@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { db } from "@/lib/turso";
+import { db, initTursoTables } from "@/lib/turso";
 
 export async function GET() {
   try {
+    await initTursoTables();
     const result = await db.execute(`
       SELECT * FROM trending_articles 
       ORDER BY timestamp DESC, rank ASC 

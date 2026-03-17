@@ -40,7 +40,7 @@ export default function WikipediaDashboard() {
       setError(null);
     } catch (err) {
       console.error("Failed to fetch trending data:", err);
-      setError("Failed to connect to the scraper backend.");
+      setError("The database is currently empty or the API is initializing.");
     } finally {
       setLoading(false);
     }
@@ -106,8 +106,8 @@ export default function WikipediaDashboard() {
         {error && data.length === 0 ? (
           <div className="flex h-96 flex-col items-center justify-center rounded-3xl border border-dashed border-red-500/30 bg-red-500/5 backdrop-blur-xl">
             <Activity className="mb-4 h-10 w-10 text-red-500 animate-pulse" />
-            <p className="text-xl font-medium text-red-400 mb-2">Backend currently unavailable</p>
-            <p className="text-zinc-500">Please make sure the scraping server is running on port 8000</p>
+            <p className="text-xl font-medium text-red-400 mb-2">Backend currently initializing</p>
+            <p className="text-zinc-500 text-center px-6">The database is empty. Please wait for the first automated scrape to complete or trigger it manually.</p>
           </div>
         ) : data.length === 0 && !loading ? (
           <div className="flex h-96 flex-col items-center justify-center rounded-3xl border border-dashed border-white/10 bg-white/5 backdrop-blur-xl">
