@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from "react";
+"use client";
+import React, { useState } from "react";
 import { ArrowUpRight, Eye, Sparkles, X } from "lucide-react";
-import Image from "next/image";
 import axios from "axios";
+import { getCategoryFallback } from "@/lib/categoryImages";
 
 interface TrendingCardProps {
   title: string;
@@ -11,39 +12,33 @@ interface TrendingCardProps {
   image?: string;
   category?: string;
   isHero?: boolean;
+  timestamp?: string;
 }
 
-const CATEGORY_IMAGES: Record<string, string> = {
-  "#Geopolitics": "https://images.unsplash.com/photo-1529107386315-e1c73906504e?q=80&w=800",
-  "#TradeAndTariffs": "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?q=80&w=800",
-  "#SecurityAndTerrorism": "https://images.unsplash.com/photo-1555861496-0666c8981751?q=80&w=800",
-  "#GlobalTourism": "https://images.unsplash.com/photo-1488646953014-85cb44e25828?q=80&w=800",
-  "#Entertainment": "https://images.unsplash.com/photo-1603190287605-e6ade32fa852?q=80&w=800",
-  "#Science": "https://images.unsplash.com/photo-1532094349884-543bc11b234d?q=80&w=800",
-  "#Corporate": "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=800",
-  "#Automotive": "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?q=80&w=800",
-  "#Movies": "https://images.unsplash.com/photo-1603190287605-e6ade32fa852?q=80&w=800",
-  "#Music": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=800",
-  "#General": "https://images.unsplash.com/photo-1457369804613-52c61a468e7d?q=80&w=800",
-};
-
-export function TrendingCard({ title, views, url, rank, image, category = "#General", isHero = false }: TrendingCardProps) {
+export function TrendingCard({ title, views, url, rank, image, category = "#General", isHero = false, timestamp }: TrendingCardProps) {
+  const [articleImageReady, setArticleImageReady] = useState(false);
   const [isInsightOpen, setIsInsightOpen] = useState(false);
   const [insight, setInsight] = useState<string | null>(null);
   const [insightLoading, setInsightLoading] = useState(false);
 
-  const heroImage = image || CATEGORY_IMAGES[category] || CATEGORY_IMAGES["#General"];
+  // Unique per-article instant-loading image (no API key required)
+  const categoryFallback = getCategoryFallback(category, title);
+
+  // Article-specific image (may take time to load)
+  const articleImage = image || null;
+
+  const isNew = timestamp && (Date.now() - new Date(timestamp).getTime() < 30 * 60 * 1000);
 
   const loadInsight = async (e: React.MouseEvent) => {
     e.stopPropagation();
     setIsInsightOpen(true);
-    if (insight) return; 
+    if (insight) return;
 
     setInsightLoading(true);
     try {
       const res = await axios.post("/api/insight", { title });
       setInsight(res.data.insight);
-    } catch (err) {
+    } catch {
       setInsight(`Looks like ${title} is trending organically!`);
     } finally {
       setInsightLoading(false);
@@ -56,27 +51,39 @@ export function TrendingCard({ title, views, url, rank, image, category = "#Gene
     return num.toString();
   };
 
+  // Visible image: instantly use category bg, then swap to article img once loaded
+  const visibleImage = (articleImageReady && articleImage) ? articleImage : categoryFallback;
+
   return (
     <>
-      <div 
+      {/* Hidden preloader: fires onLoad to tell us when the article image is ready */}
+      {articleImage && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={articleImage}
+          alt=""
+          aria-hidden="true"
+          className="hidden"
+          onLoad={() => setArticleImageReady(true)}
+          onError={() => setArticleImageReady(false)}
+        />
+      )}
+
+      <div
         onClick={loadInsight}
         className={`group cursor-pointer relative flex flex-col justify-end overflow-hidden rounded-2xl border border-white/10 bg-zinc-900/50 transition-all duration-300 hover:border-white/30 hover:-translate-y-2 hover:shadow-[0_20px_50px_rgba(16,185,129,0.15)] ${
           isHero ? "min-h-[400px] md:min-h-[500px]" : "min-h-[280px]"
         }`}
       >
-        {/* Background Image */}
-        <div className="absolute inset-0 w-full h-full">
-          <Image
-            src={heroImage}
-            alt={title}
-            fill
-            className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-          />
+        {/* Background Image - instantly loaded, smooth cross-fade */}
+        <div
+          className="absolute inset-0 w-full h-full bg-cover bg-center bg-no-repeat transition-all duration-700 ease-out group-hover:scale-105"
+          style={{ backgroundImage: `url(${visibleImage})` }}
+        >
           {/* Magazine Dark Gradient Overlay */}
-          <div className="absolute inset-0 bg-linear-to-t from-[#0a0a0a] via-[#0a0a0a]/80 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/80 to-transparent" />
         </div>
-        
+
         {/* Rank & Category Badges */}
         <div className="absolute top-4 left-4 flex gap-2 z-10">
           <div className="flex px-3 py-1 items-center justify-center rounded-full bg-white/10 backdrop-blur-md border border-white/5 text-xs font-semibold text-white">
@@ -85,12 +92,17 @@ export function TrendingCard({ title, views, url, rank, image, category = "#Gene
           <div className="flex px-3 py-1 items-center justify-center rounded-full bg-emerald-500/20 backdrop-blur-md border border-emerald-500/10 text-xs font-medium text-emerald-300">
             {category}
           </div>
+          {isNew && (
+            <div className="flex px-3 py-1 items-center justify-center rounded-full bg-emerald-500 text-black text-xs font-bold uppercase tracking-wider animate-pulse shadow-[0_0_15px_rgba(16,185,129,0.5)]">
+              New
+            </div>
+          )}
         </div>
 
         {/* Glassmorphic Content Block */}
         <div className="relative z-10 p-5 w-full">
-          <h3 className={`font-(family-name:--font-playfair) tracking-tight text-white mb-3 line-clamp-3 ${
-            isHero ? "text-3xl md:text-5xl font-bold" : "text-xl font-semibold"
+          <h3 className={`font-bold tracking-tight text-white mb-3 line-clamp-3 leading-snug ${
+            isHero ? "text-3xl md:text-5xl" : "text-xl"
           }`}>
             {title}
           </h3>
@@ -100,7 +112,7 @@ export function TrendingCard({ title, views, url, rank, image, category = "#Gene
               <Eye className="h-4 w-4" />
               <span className="font-medium">{formatViews(views)}</span>
             </div>
-            
+
             <div className="flex items-center gap-1 text-sm font-medium text-emerald-400 opacity-0 transform translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300">
               <Sparkles className="h-4 w-4" /> Why?
             </div>
@@ -108,31 +120,33 @@ export function TrendingCard({ title, views, url, rank, image, category = "#Gene
         </div>
       </div>
 
-      {/* AI Insight Modal Overlay */}
+      {/* AI Insight Modal */}
       {isInsightOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={() => setIsInsightOpen(false)}>
-          <div 
-            onClick={(e) => e.stopPropagation()} 
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={() => setIsInsightOpen(false)}>
+          <div
+            onClick={(e) => e.stopPropagation()}
             className="w-full max-w-lg overflow-hidden rounded-3xl bg-[#111111] shadow-2xl border border-white/10"
           >
-            <div className="relative h-48 w-full">
-               <Image src={heroImage} alt={title} fill className="object-cover opacity-60" />
-               <div className="absolute inset-0 bg-linear-to-t from-[#111111] to-transparent" />
-               <button 
-                  onClick={() => setIsInsightOpen(false)}
-                  className="absolute top-4 right-4 rounded-full p-2 bg-black/50 text-white hover:bg-black/80 backdrop-blur-md transition-colors z-20"
-                >
-                  <X className="h-5 w-5" />
-                </button>
+            <div
+              className="relative h-48 w-full bg-cover bg-center"
+              style={{ backgroundImage: `url(${visibleImage})` }}
+            >
+              <div className="absolute inset-0 bg-gradient-to-t from-[#111111] to-transparent" />
+              <button
+                onClick={() => setIsInsightOpen(false)}
+                className="absolute top-4 right-4 rounded-full p-2 bg-black/50 text-white hover:bg-black/80 backdrop-blur-md transition-colors z-20"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
-            
+
             <div className="p-8 pb-10 relative -mt-16 z-20">
               <div className="flex items-center gap-2 text-emerald-400 mb-2">
                 <Sparkles className="h-5 w-5" />
                 <span className="text-sm font-semibold tracking-wider uppercase">AI Insight</span>
               </div>
-              <h4 className="mb-6 font-(family-name:--font-playfair) text-3xl font-bold text-white leading-tight">{title}</h4>
-              
+              <h4 className="mb-6 text-3xl font-bold text-white leading-tight">{title}</h4>
+
               <div className="rounded-xl bg-white/5 border border-white/10 p-5 backdrop-blur-md">
                 {insightLoading ? (
                   <div className="flex items-center gap-3 text-zinc-400">
@@ -140,12 +154,10 @@ export function TrendingCard({ title, views, url, rank, image, category = "#Gene
                     <span className="text-sm font-medium">Scanning global feeds...</span>
                   </div>
                 ) : (
-                  <p className="text-zinc-300 leading-relaxed text-lg">
-                    {insight}
-                  </p>
+                  <p className="text-zinc-300 leading-relaxed text-lg">{insight}</p>
                 )}
               </div>
-              
+
               <div className="mt-8 flex justify-end">
                 <a
                   href={url}

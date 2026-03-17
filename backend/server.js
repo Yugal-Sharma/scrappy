@@ -15,9 +15,23 @@ const io = new Server(server, {
   }
 });
 
-const PORT = 8000;
+const PORT = process.env.PORT || 8000;
 
-app.use(cors());
+app.use(cors({
+  origin: function(origin, callback) {
+    // Allow requests with no origin (mobile apps, curl, Postman)
+    if (!origin) return callback(null, true);
+    const allowed = [
+      'http://localhost:3000',
+      process.env.ALLOWED_ORIGIN,
+    ].filter(Boolean);
+    if (allowed.includes(origin) || process.env.NODE_ENV !== 'production') {
+      return callback(null, true);
+    }
+    callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true
+}));
 app.use(express.json());
 
 // ─── Websocket Logger ────────────────────────────────────────────
@@ -117,6 +131,7 @@ app.get("/api/category/:category", async (req, res) => {
   try {
     const db = await getDb();
     const { category } = req.params;
+    const decodedCategory = decodeURIComponent(category);
     
     // First find the latest timestamp, or 30-min window constraint
     const latestResult = db.exec(
@@ -129,14 +144,16 @@ app.get("/api/category/:category", async (req, res) => {
 
     const latestTimestamp = latestResult[0].values[0][0];
     
-    let queryCategory = category;
+    let queryCategory = decodedCategory;
     if (!queryCategory.startsWith('#')) {
       queryCategory = '#' + queryCategory;
     }
 
+    console.log(`[API] Fetching category: ${queryCategory} for timestamp: ${latestTimestamp}`);
+
     const articlesResult = db.exec(
-      "SELECT id, title, views, rank, timestamp, article_url, thumbnail_url, originalimage_url, description, category FROM trending_articles WHERE timestamp = ? AND category = ? ORDER BY rank ASC",
-      [latestTimestamp, queryCategory]
+      "SELECT id, title, views, rank, timestamp, article_url, thumbnail_url, originalimage_url, description, category FROM trending_articles WHERE timestamp = ? AND LOWER(category) = LOWER(?) ORDER BY rank ASC",
+      [latestTimestamp, queryCategory.trim()]
     );
 
     if (articlesResult.length === 0 || !articlesResult[0].values.length) {

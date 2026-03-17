@@ -8,38 +8,144 @@ const USER_AGENT =
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
+const CATEGORIES = [
+  "#Geopolitics", 
+  "#TradeAndTariffs", 
+  "#SecurityAndTerrorism", 
+  "#GlobalTourism", 
+  "#Science", 
+  "#Entertainment",
+  "#General"
+];
+
 async function categorizeArticlesBatch(articles) {
-  if (!process.env.GEMINI_API_KEY) {
-    return articles.map((a) => ({ ...a, category: "#General" }));
-  }
+  const SCIENCE_KW = ["space", "nasa", "physics", "biology", "chemistry", "quantum", "moon", "mars", "satellite", "telescope", "health", "disease", "vaccine", "syndrome", "species", "dinosaur", "fossil"];
+  const TERROR_KW = ["war", "attack", "military", "army", "navy", "force", "troop", "weapon", "missile", "cartel", "police", "crime", "murder", "cartel", "cyber", "hack"];
+  const GEO_KW = ["election", "president", "minister", "parliament", "treaty", "united nations", "summit", "diplomacy", "border", "refugee", "democrat", "republican", "voting", "campaign"];
+  const TRADE_KW = ["economy", "inflation", "tariff", "export", "import", "gdp", "market", "bank", "currency", "trade", "sanction", "debt", "recession", "company", "biz"];
+  const TOURISM_KW = ["city", "country", "river", "mountain", "island", "museum", "park", "monument", "hotel", "resort", "airline", "flight", "tourism", "destination"];
+  const ENTERTAINMENT_KW = ["actor", "actress", "film", "movie", "singer", "band", "album", "song", "award", "oscar", "grammy", "celebrity", "star", "wrestler", "athlete", "nba", "nfl", "football", "soccer", "marvel", "dc", "anime"];
 
-  const titles = articles.map((a) => a.article.replace(/_/g, " "));
-  const prompt = `Categorize the following Wikipedia article titles into ONE of the following strict tags ONLY: 
-#Geopolitics, #TradeAndTariffs, #SecurityAndTerrorism, #GlobalTourism, #Entertainment, #Science, #Corporate, #Automotive, #Movies, #Music, #General.
-Return ONLY a valid JSON array of strings in the exact same order as the input list.
+  if (process.env.GEMINI_API_KEY) {
+    try {
+      const prompt = `Analyze the following Wikipedia titles and categorize them into ONE of these exact categories:
+      ${CATEGORIES.join(", ")}
+      
+      STRICT RULES:
+      1. If the topic is a person (Actor, Celebrity, Athlete, Artist like "Banksy"), it CANNOT be #Science, #TradeAndTariffs, or #Geopolitics. Assign it to #Entertainment or #General.
+      2. #TradeAndTariffs MUST strictly be about economics, taxes, imports/exports, companies, or trade deals.
+      3. If confidence is below 90% that it fits a specific category, assign it to #General.
+      
+      Return a valid JSON object mapping the titles to their categories. Example: { "Banksy": "#Entertainment", "Quantum computing": "#Science" }
+      
+      Titles:
+      ${articles.map(a => a.article.replace(/_/g, " ")).join(" | ")}`;
 
-Titles:
-${JSON.stringify(titles)}`;
+      const response = await ai.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: prompt,
+      });
+      
+      let text = response.text;
+      if (text.startsWith("\`\`\`json")) text = text.replace(/\`\`\`json/g, "").replace(/\`\`\`/g, "").trim();
+      else if (text.startsWith("\`\`\`")) text = text.replace(/\`\`\`/g, "").trim();
+      
+      const catMap = JSON.parse(text);
 
-  try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: prompt,
-    });
-
-    let rawText = response.text || "[]";
-    rawText = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
-    
-    const categories = JSON.parse(rawText);
-    
-    if (Array.isArray(categories) && categories.length === articles.length) {
-      return articles.map((a, i) => ({ ...a, category: categories[i] }));
+      return articles.map(a => {
+          const title = a.article.replace(/_/g, " ");
+          let assigned = catMap[title] || "#General";
+          if (!CATEGORIES.includes(assigned)) assigned = "#General";
+          return { ...a, category: assigned };
+      });
+    } catch (err) {
+      console.error("[Scraper] Gemini Validation Failed, falling back to Deterministic Keywords:", err.message);
     }
-    throw new Error("Category array length mismatch");
-  } catch (error) {
-    console.error("[Agent] AI Categorization failed. Falling back to #General.", error.message);
-    return articles.map((a) => ({ ...a, category: "#General" }));
   }
+
+  // Fallback / Deterministic Regex
+  return articles.map(a => {
+    const title = a.article.toLowerCase().replace(/_/g, " ");
+    let assigned = "#General";
+
+    const hasMatch = (keywords) => keywords.some(kw => title.includes(kw));
+
+    if (hasMatch(ENTERTAINMENT_KW)) assigned = "#Entertainment";
+    else if (hasMatch(SCIENCE_KW)) assigned = "#Science";
+    else if (hasMatch(TERROR_KW)) assigned = "#SecurityAndTerrorism";
+    else if (hasMatch(GEO_KW)) assigned = "#Geopolitics";
+    else if (hasMatch(TRADE_KW)) assigned = "#TradeAndTariffs";
+    else if (hasMatch(TOURISM_KW)) assigned = "#GlobalTourism";
+
+    if (assigned === "#General" && title.split(" ").length <= 3 && !title.includes("of") && !title.includes("the")) {
+       assigned = "#Entertainment"; // Err on entertainment for distinct names
+    }
+
+    return { ...a, category: assigned };
+  });
+}
+
+async function enrichArticles(articles) {
+  const BATCH_SIZE = 25; // API usually allows 50, but let's be safe
+  const enrichedArticles = [];
+
+  for (let i = 0; i < articles.length; i += BATCH_SIZE) {
+    const batch = articles.slice(i, i + BATCH_SIZE);
+    const titles = batch.map((a) => encodeURIComponent(a.article)).join("|");
+
+    try {
+      const response = await fetch(
+        `https://en.wikipedia.org/w/api.php?action=query&prop=pageimages|extracts&piprop=original|thumbnail&pithumbsize=800&exintro=1&explaintext=1&titles=${titles}&format=json`,
+        { headers: { "Api-User-Agent": USER_AGENT } }
+      );
+      
+      if (!response.ok) throw new Error("Wikimedia API Error");
+      
+      const data = await response.json();
+      const pages = data.query?.pages || {};
+
+      const UNSPLASH_KEY = process.env.UNSPLASH_ACCESS_KEY;
+
+      for (const article of batch) {
+        const titleClean = article.article.replace(/_/g, " ");
+        const page = Object.values(pages).find(
+          (p) => p.title.replace(/ /g, "_") === article.article || p.title === titleClean
+        );
+        
+        let finalImageUrl = page?.original?.source || page?.thumbnail?.source;
+
+        // Stage 2: Unsplash fallback
+        if (!finalImageUrl && UNSPLASH_KEY) {
+           try {
+             const unsplashRes = await fetch(`https://api.unsplash.com/search/photos?query=${encodeURIComponent(titleClean)}&client_id=${UNSPLASH_KEY}&per_page=1`);
+             const unsplashData = await unsplashRes.json();
+             if (unsplashData.results && unsplashData.results.length > 0) {
+                finalImageUrl = unsplashData.results[0].urls.regular;
+             }
+           } catch (err) {
+             console.warn(`[Scraper] Unsplash failed for ${titleClean}`);
+           }
+        }
+
+        // Stage 3: Pollinations AI Fallback
+        if (!finalImageUrl) {
+           finalImageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(titleClean + " " + article.category + " high quality photo bloomberg magazine")}?width=800&height=800&nologo=true`;
+        }
+
+        enrichedArticles.push({
+          ...article,
+          originalimage: finalImageUrl,
+          thumbnail: finalImageUrl,
+          description: page?.extract ? page.extract.substring(0, 200) + "..." : null,
+        });
+      }
+    } catch (err) {
+      console.warn(`[Scraper] Failed to enrich batch: ${err.message}`);
+      enrichedArticles.push(...batch);
+    }
+  }
+
+  return enrichedArticles;
 }
 
 async function fetchTrendingArticles() {
@@ -65,22 +171,10 @@ async function fetchTrendingArticles() {
     }
 
     const data = await response.json();
-    const articles = data.items[0].articles.slice(0, 50);
+    // VAST CONTENT: Fetch 250 items instead of 50 to survive strict LLM filtering
+    const articles = data.items[0].articles.filter(a => a.article !== "Main_Page" && !a.article.includes("Special:")).slice(0, 250);
 
     const timestamp = new Date().toISOString();
-    const windowStart = new Date(
-      Math.floor(now.getTime() / (30 * 60 * 1000)) * (30 * 60 * 1000)
-    ).toISOString();
-
-    const existing = db.exec(
-      "SELECT COUNT(*) as count FROM trending_articles WHERE timestamp >= ?",
-      [windowStart]
-    );
-
-    if (existing.length > 0 && existing[0].values[0][0] > 0) {
-      console.log(`[Scraper] Data already exists for this 30-min window, skipping.`);
-      return;
-    }
 
     console.log(`[Agent] Prompting LLM to categorize ${articles.length} viral posts into specific Intelligence subsets...`);
     const categorizedArticles = await categorizeArticlesBatch(articles);
@@ -109,11 +203,6 @@ async function fetchTrendingArticles() {
     // Merge both arrays
     enrichedArticles = [...enrichedArticles, ...externalArticles];
 
-    const stmt = db.prepare(`
-      INSERT INTO trending_articles (title, views, rank, timestamp, article_url, thumbnail_url, originalimage_url, description, category)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
     for (let i = 0; i < enrichedArticles.length; i++) {
       const item = enrichedArticles[i];
       const title = item.article || item.title;
@@ -121,20 +210,35 @@ async function fetchTrendingArticles() {
       const cleanTitle = typeof title === 'string' ? title.replace(/_/g, " ") : "Trending";
       const articleUrl = item.article_url || `https://en.wikipedia.org/wiki/${encodeURIComponent(title)}`;
 
-      stmt.run([
-        cleanTitle,
-        item.views,
-        i + 1,
-        timestamp,
-        articleUrl,
-        item.thumbnail || null,
-        item.originalimage || null,
-        item.description || null,
-        item.category || '#General'
-      ]);
+      // Check if article exists
+      const existingQuery = db.exec("SELECT id FROM trending_articles WHERE title = ?", [cleanTitle]);
+      
+      if (existingQuery.length > 0 && existingQuery[0].values.length > 0) {
+         // UPDATE existing record to 'Fresh' status
+         const id = existingQuery[0].values[0][0];
+         db.run(`
+            UPDATE trending_articles 
+            SET views = views + ?, rank = ?, timestamp = ?, thumbnail_url = COALESCE(thumbnail_url, ?), originalimage_url = COALESCE(originalimage_url, ?)
+            WHERE id = ?
+         `, [item.views, i + 1, timestamp, item.thumbnail || null, item.originalimage || null, id]);
+      } else {
+         // INSERT new record
+         db.run(`
+            INSERT INTO trending_articles (title, views, rank, timestamp, article_url, thumbnail_url, originalimage_url, description, category)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+         `, [
+            cleanTitle,
+            item.views,
+            i + 1,
+            timestamp,
+            articleUrl,
+            item.thumbnail || null,
+            item.originalimage || null,
+            item.description || null,
+            item.category || '#General'
+         ]);
+      }
     }
-
-    stmt.free();
     saveDb();
 
     console.log(
@@ -145,69 +249,6 @@ async function fetchTrendingArticles() {
   }
 }
 
-async function enrichArticles(articles) {
-  const enriched = [];
-  const batchSize = 10;
 
-  for (let i = 0; i < articles.length; i += batchSize) {
-    const batch = articles.slice(i, i + batchSize);
-    
-    // First, get descriptions via summary API
-    const promises = batch.map(async (article) => {
-      try {
-        if (article.article.startsWith("Special:") || article.article === "Main_Page") {
-          return { ...article, thumbnail: null, originalimage: null, description: null };
-        }
-
-        const summaryUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(article.article)}`;
-        const res = await fetch(summaryUrl, { headers: { "Api-User-Agent": USER_AGENT } });
-        
-        let desc = null;
-        let thumbUrl = null;
-        let originalUrl = null;
-
-        if (res.ok) {
-          const summary = await res.json();
-          desc = summary.extract ? summary.extract.substring(0, 200) : null;
-          thumbUrl = summary.thumbnail?.source || null;
-        }
-
-        // Now, strictly get the high-res original image using the action=query API
-        // This bypassed the crop constraints of the summary endpoint.
-        const queryUrl = `https://en.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(article.article)}&prop=pageimages&piprop=original&format=json`;
-        const qRes = await fetch(queryUrl, { headers: { "Api-User-Agent": USER_AGENT } });
-        
-        if (qRes.ok) {
-           const qData = await qRes.json();
-           const pages = qData.query?.pages;
-           if (pages) {
-             const pageId = Object.keys(pages)[0];
-             if (pageId && pages[pageId].original && pages[pageId].original.source) {
-                 originalUrl = pages[pageId].original.source;
-             }
-           }
-        }
-
-        return {
-          ...article,
-          thumbnail: thumbUrl,
-          originalimage: originalUrl || thumbUrl,
-          description: desc,
-        };
-      } catch (err) {
-        return { ...article, thumbnail: null, originalimage: null, description: null };
-      }
-    });
-
-    const results = await Promise.all(promises);
-    enriched.push(...results);
-
-    if (i + batchSize < articles.length) {
-      await new Promise((resolve) => setTimeout(resolve, 200));
-    }
-  }
-
-  return enriched;
-}
 
 module.exports = { fetchTrendingArticles };

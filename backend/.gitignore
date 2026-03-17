@@ -1,0 +1,4 @@
+node_modules
+.env
+wiki_data.db
+*.log

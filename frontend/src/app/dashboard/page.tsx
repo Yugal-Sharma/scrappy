@@ -33,7 +33,7 @@ export default function WikipediaDashboard() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const response = await axios.get<TrendingResponse>("/api/trending");
+      const response = await axios.get<TrendingResponse>(`/api/trending?t=${Date.now()}`);
       
       setData(response.data.articles || []);
       setLastSync(response.data.lastUpdated);
@@ -133,6 +133,7 @@ export default function WikipediaDashboard() {
                     image={topStory.originalimage_url || topStory.thumbnail_url || undefined}
                     category={topStory.category}
                     isHero={true}
+                    timestamp={topStory.timestamp}
                   />
                 </div>
               )}
@@ -148,6 +149,7 @@ export default function WikipediaDashboard() {
                       rank={article.rank}
                       image={article.originalimage_url || article.thumbnail_url || undefined}
                       category={article.category}
+                      timestamp={article.timestamp}
                     />
                   </div>
                 ))}
