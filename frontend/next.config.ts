@@ -3,14 +3,10 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   images: {
     remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: '**',
-      },
-      {
-        protocol: 'http',
-        hostname: '**',
-      },
+      { protocol: 'https', hostname: '*.wikimedia.org' },
+      { protocol: 'https', hostname: '*.wikipedia.org' },
+      { protocol: 'https', hostname: 'image.pollinations.ai' },
+      { protocol: 'https', hostname: 'images.unsplash.com' },
     ],
   },
 };
