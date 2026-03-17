@@ -39,7 +39,7 @@ interface Article {
 }
 
 // ─── Phase 1: LLM Categorization ─────────────────────────────────
-async function categorizeArticlesBatch(articles: Article[]): Promise<Article[]> {
+async function categorizeArticlesBatch(articles: Article[]): Promise<{ enriched: Article[], debug?: any }> {
     if (process.env.GEMINI_API_KEY) {
         try {
             const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
@@ -64,32 +64,27 @@ async function categorizeArticlesBatch(articles: Article[]): Promise<Article[]> 
             const jsonMatch = text.match(/\{[\s\S]*\}/);
             const catMap = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
 
-            return articles.map(a => {
-                const title = a.article.replace(/_/g, " ").trim().toLowerCase();
-                
-                // Flexible match: find the key in catMap that best matches the title
-                const matchedKey = Object.keys(catMap).find(key => 
-                    key.toLowerCase().trim() === title || 
-                    title.includes(key.toLowerCase().trim()) || 
-                    key.toLowerCase().trim().includes(title)
-                );
-
-                let assigned = matchedKey ? catMap[matchedKey] : "#General";
-                
-                // Ensure assigned category is valid (case-insensitive)
-                const validCategory = CATEGORIES.find(c => c.toLowerCase() === assigned.toLowerCase());
-                assigned = validCategory || "#General";
-                
-                return { ...a, category: assigned };
-            });
+            return { 
+                enriched: articles.map(a => {
+                    const title = a.article.replace(/_/g, " ").trim().toLowerCase();
+                    const matchedKey = Object.keys(catMap).find(key => 
+                        key.toLowerCase().trim() === title || 
+                        title.includes(key.toLowerCase().trim()) || 
+                        key.toLowerCase().trim().includes(title)
+                    );
+                    let assigned = matchedKey ? catMap[matchedKey] : "#General";
+                    const validCategory = CATEGORIES.find(c => c.toLowerCase() === assigned.toLowerCase());
+                    assigned = validCategory || "#General";
+                    return { ...a, category: assigned };
+                }),
+                debug: { responseLength: text.length, mappedCount: Object.keys(catMap).length, firstKey: Object.keys(catMap)[0] }
+            };
         } catch (err) {
             console.error("Gemini categorization failed:", err);
-            return articles.map(a => ({ ...a, category: "#General" }));
+            return { enriched: articles.map(a => ({ ...a, category: "#General" })), debug: { error: String(err) } };
         }
     }
-    
-    // Fallback: Just return with #General
-    return articles.map(a => ({ ...a, category: "#General" }));
+    return { enriched: articles.map(a => ({ ...a, category: "#General" })), debug: { keyMissing: true } };
 }
 
 // ─── Phase 2: Image Enrichment ───────────────────────────────────
@@ -192,7 +187,7 @@ export async function GET(req: Request) {
             .slice(0, 50) || [];
 
         // 2. Process
-        const categorized = await categorizeArticlesBatch(wikiArticles);
+        const { enriched: categorized, debug } = await categorizeArticlesBatch(wikiArticles);
         const enriched = await enrichArticles(categorized);
         const external = await fetchExternalSources();
         
@@ -223,7 +218,7 @@ export async function GET(req: Request) {
             });
         }
 
-        return NextResponse.json({ success: true, count: allArticles.length });
+        return NextResponse.json({ success: true, count: allArticles.length, debug });
     } catch (error: unknown) {
         console.error("Scraper failed:", error);
         return NextResponse.json({ success: false, error: error instanceof Error ? error.message : "Unknown error" }, { status: 500 });
