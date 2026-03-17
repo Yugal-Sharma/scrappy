@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { ArrowUpRight, Eye, Sparkles, X } from "lucide-react";
-import { Area, AreaChart, ResponsiveContainer } from "recharts";
+import Image from "next/image";
 import axios from "axios";
 
 interface TrendingCardProps {
@@ -8,29 +8,33 @@ interface TrendingCardProps {
   views: number;
   url: string;
   rank: number;
+  image?: string;
+  category?: string;
+  isHero?: boolean;
 }
 
-export function TrendingCard({ title, views, url, rank }: TrendingCardProps) {
-  const [history, setHistory] = useState<any[]>([]);
+const CATEGORY_IMAGES: Record<string, string> = {
+  "#Geopolitics": "https://images.unsplash.com/photo-1529107386315-e1c73906504e?q=80&w=800",
+  "#Entertainment": "https://images.unsplash.com/photo-1603190287605-e6ade32fa852?q=80&w=800",
+  "#Science": "https://images.unsplash.com/photo-1532094349884-543bc11b234d?q=80&w=800",
+  "#WorldNews": "https://images.unsplash.com/photo-1495020689067-958852a7765e?q=80&w=800",
+  "#Sports": "https://images.unsplash.com/photo-1461896836934-ffe607ba8211?q=80&w=800",
+  "#Technology": "https://images.unsplash.com/photo-1518770660439-4636190af475?q=80&w=800",
+  "#History": "https://images.unsplash.com/photo-1461360370896-922624d12aa1?q=80&w=800",
+  "#General": "https://images.unsplash.com/photo-1457369804613-52c61a468e7d?q=80&w=800",
+};
+
+export function TrendingCard({ title, views, url, rank, image, category = "#General", isHero = false }: TrendingCardProps) {
   const [isInsightOpen, setIsInsightOpen] = useState(false);
   const [insight, setInsight] = useState<string | null>(null);
   const [insightLoading, setInsightLoading] = useState(false);
 
-  useEffect(() => {
-    async function fetchHistory() {
-      try {
-        const res = await axios.get(`/api/article/${encodeURIComponent(title)}/history`);
-        setHistory(res.data.history || []);
-      } catch (err) {
-        // console.error("Could not fetch history for chart", err);
-      }
-    }
-    fetchHistory();
-  }, [title]);
+  const heroImage = image || CATEGORY_IMAGES[category] || CATEGORY_IMAGES["#General"];
 
-  const loadInsight = async () => {
+  const loadInsight = async (e: React.MouseEvent) => {
+    e.stopPropagation();
     setIsInsightOpen(true);
-    if (insight) return; // Don't fetch twice
+    if (insight) return; 
 
     setInsightLoading(true);
     try {
@@ -43,7 +47,6 @@ export function TrendingCard({ title, views, url, rank }: TrendingCardProps) {
     }
   };
 
-  // Format large numbers (e.g., 1500000 -> 1.5M)
   const formatViews = (num: number) => {
     if (num >= 1000000) return (num / 1000000).toFixed(1) + "M";
     if (num >= 1000) return (num / 1000).toFixed(1) + "K";
@@ -54,98 +57,98 @@ export function TrendingCard({ title, views, url, rank }: TrendingCardProps) {
     <>
       <div 
         onClick={loadInsight}
-        className="group cursor-pointer relative flex flex-col justify-between overflow-hidden rounded-xl border border-zinc-200 bg-white p-6 transition-all hover:border-zinc-300 hover:shadow-md dark:border-zinc-800 dark:bg-zinc-950 dark:hover:border-zinc-700"
+        className={`group cursor-pointer relative flex flex-col justify-end overflow-hidden rounded-2xl border border-white/10 bg-zinc-900/50 transition-all hover:border-white/20 hover:shadow-2xl ${
+          isHero ? "min-h-[400px] md:min-h-[500px]" : "min-h-[280px]"
+        }`}
       >
+        {/* Background Image */}
+        <div className="absolute inset-0 w-full h-full">
+          <Image
+            src={heroImage}
+            alt={title}
+            fill
+            className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          />
+          {/* Magazine Dark Gradient Overlay */}
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/80 to-transparent" />
+        </div>
         
-        {/* Rank Badge */}
-        <div className="absolute top-4 right-4 flex h-8 w-8 items-center justify-center rounded-full bg-zinc-100 text-sm font-semibold text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400 z-10 transition-colors group-hover:bg-zinc-200 dark:group-hover:bg-zinc-800">
-          #{rank}
+        {/* Rank & Category Badges */}
+        <div className="absolute top-4 left-4 flex gap-2 z-10">
+          <div className="flex px-3 py-1 items-center justify-center rounded-full bg-white/10 backdrop-blur-md border border-white/5 text-xs font-semibold text-white">
+            #{rank}
+          </div>
+          <div className="flex px-3 py-1 items-center justify-center rounded-full bg-emerald-500/20 backdrop-blur-md border border-emerald-500/10 text-xs font-medium text-emerald-300">
+            {category}
+          </div>
         </div>
 
-        <div className="mb-4 pr-10 z-10 relative">
-          <h3 className="line-clamp-2 text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
+        {/* Glassmorphic Content Block */}
+        <div className="relative z-10 p-5 w-full">
+          <h3 className={`font-[family-name:var(--font-playfair)] tracking-tight text-white mb-3 line-clamp-3 ${
+            isHero ? "text-3xl md:text-5xl font-bold" : "text-xl font-semibold"
+          }`}>
             {title}
           </h3>
-        </div>
 
-        {/* Sparkline Chart */}
-        <div className="absolute inset-x-0 bottom-16 h-24 opacity-30 group-hover:opacity-50 transition-opacity pointer-events-none">
-          {history.length > 1 && (
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={history}>
-                <defs>
-                  <linearGradient id={`gradient-${rank}`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8} />
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <Area
-                  type="monotone"
-                  dataKey="views"
-                  stroke="#3b82f6"
-                  fillOpacity={1}
-                  fill={`url(#gradient-${rank})`}
-                  isAnimationActive={false}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-
-        <div className="flex items-center justify-between mt-auto pt-4 border-t border-zinc-100 dark:border-zinc-900 z-10 relative bg-white/50 dark:bg-zinc-950/50 backdrop-blur-sm">
-          <div className="flex items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
-            <Eye className="h-4 w-4" />
-            <span className="font-medium">{formatViews(views)} views</span>
-          </div>
-          
-          <div className="flex items-center gap-1 text-sm font-medium text-emerald-600 transition-colors group-hover:text-emerald-700 dark:text-emerald-400 dark:group-hover:text-emerald-300">
-            <Sparkles className="h-4 w-4" /> Why?
+          <div className="flex items-center justify-between border-t border-white/10 pt-4 mt-auto">
+            <div className="flex items-center gap-2 text-sm text-zinc-300">
+              <Eye className="h-4 w-4" />
+              <span className="font-medium">{formatViews(views)}</span>
+            </div>
+            
+            <div className="flex items-center gap-1 text-sm font-medium text-emerald-400 opacity-0 transform translate-y-2 group-hover:opacity-100 group-hover:translate-y-0 transition-all duration-300">
+              <Sparkles className="h-4 w-4" /> Why?
+            </div>
           </div>
         </div>
       </div>
 
       {/* AI Insight Modal Overlay */}
       {isInsightOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 animate-in fade-in duration-200" onClick={() => setIsInsightOpen(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200" onClick={() => setIsInsightOpen(false)}>
           <div 
             onClick={(e) => e.stopPropagation()} 
-            className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-zinc-900"
+            className="w-full max-w-lg overflow-hidden rounded-3xl bg-[#111111] shadow-2xl border border-white/10"
           >
-            <div className="flex items-center justify-between border-b border-zinc-100 px-6 py-4 dark:border-zinc-800">
-              <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
-                <Sparkles className="h-5 w-5" />
-                <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">AI Viral Insight</h3>
-              </div>
-              <button 
-                onClick={() => setIsInsightOpen(false)}
-                className="rounded-full p-1 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-800 dark:hover:text-zinc-300 transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
+            <div className="relative h-48 w-full">
+               <Image src={heroImage} alt={title} fill className="object-cover opacity-60" />
+               <div className="absolute inset-0 bg-gradient-to-t from-[#111111] to-transparent" />
+               <button 
+                  onClick={() => setIsInsightOpen(false)}
+                  className="absolute top-4 right-4 rounded-full p-2 bg-black/50 text-white hover:bg-black/80 backdrop-blur-md transition-colors z-20"
+                >
+                  <X className="h-5 w-5" />
+                </button>
             </div>
             
-            <div className="p-6">
-              <h4 className="mb-4 text-xl font-bold text-zinc-900 dark:text-zinc-50">{title}</h4>
+            <div className="p-8 pb-10 relative -mt-16 z-20">
+              <div className="flex items-center gap-2 text-emerald-400 mb-2">
+                <Sparkles className="h-5 w-5" />
+                <span className="text-sm font-semibold tracking-wider uppercase">AI Insight</span>
+              </div>
+              <h4 className="mb-6 font-[family-name:var(--font-playfair)] text-3xl font-bold text-white leading-tight">{title}</h4>
               
-              <div className="rounded-lg bg-zinc-50 p-4 dark:bg-zinc-950/50">
+              <div className="rounded-xl bg-white/5 border border-white/10 p-5 backdrop-blur-md">
                 {insightLoading ? (
-                  <div className="flex items-center gap-3 text-zinc-500">
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
-                    <span>Analyzing Wikipedia trends...</span>
+                  <div className="flex items-center gap-3 text-zinc-400">
+                    <div className="h-5 w-5 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
+                    <span className="text-sm font-medium">Scanning global feeds...</span>
                   </div>
                 ) : (
-                  <p className="text-zinc-700 dark:text-zinc-300 leading-relaxed">
+                  <p className="text-zinc-300 leading-relaxed text-lg">
                     {insight}
                   </p>
                 )}
               </div>
               
-              <div className="mt-6 flex justify-end">
+              <div className="mt-8 flex justify-end">
                 <a
                   href={url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
+                  className="flex items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-bold text-black transition-transform hover:scale-105"
                 >
                   Read Full Article <ArrowUpRight className="h-4 w-4" />
                 </a>

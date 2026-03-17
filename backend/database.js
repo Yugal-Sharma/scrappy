@@ -29,7 +29,9 @@ async function getDb() {
       timestamp TEXT NOT NULL,
       article_url TEXT NOT NULL,
       thumbnail_url TEXT,
-      description TEXT
+      originalimage_url TEXT,
+      description TEXT,
+      category TEXT
     )
   `);
 

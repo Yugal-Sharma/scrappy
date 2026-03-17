@@ -1,7 +1,45 @@
 const { getDb, saveDb } = require("./database");
+require("dotenv").config();
+const { GoogleGenAI } = require("@google/genai");
 
 const USER_AGENT =
-  "WikiTrendingScraper/1.0 (https://github.com/scraper; contact@example.com)";
+  "WikiTrendingScraper/2.0 (https://github.com/scraper; contact@example.com)";
+
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+async function categorizeArticlesBatch(articles) {
+  if (!process.env.GEMINI_API_KEY) {
+    return articles.map((a) => ({ ...a, category: "#General" }));
+  }
+
+  const titles = articles.map((a) => a.article.replace(/_/g, " "));
+  const prompt = `Categorize the following Wikipedia article titles into ONE of the following tags: #Geopolitics, #Entertainment, #Science, #WorldNews, #Sports, #Technology, #History, #General. Return ONLY a valid JSON array of strings in the exact same order as the input list.
+
+Titles:
+${JSON.stringify(titles)}`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: prompt,
+    });
+
+    let rawText = response.text || "[]";
+    // Clean up markdown formatting if present
+    rawText = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
+    
+    const categories = JSON.parse(rawText);
+    
+    // Ensure we match length
+    if (Array.isArray(categories) && categories.length === articles.length) {
+      return articles.map((a, i) => ({ ...a, category: categories[i] }));
+    }
+    throw new Error("Category array length mismatch");
+  } catch (error) {
+    console.error("[Agent] AI Categorization failed. Falling back to #General.", error.message);
+    return articles.map((a) => ({ ...a, category: "#General" }));
+  }
+}
 
 async function fetchTrendingArticles() {
   try {
@@ -46,13 +84,18 @@ async function fetchTrendingArticles() {
       return;
     }
 
+    // AI Categorization Batch
+    console.log(`[Agent] Prompting LLM to categorize ${articles.length} viral posts...`);
+    const categorizedArticles = await categorizeArticlesBatch(articles);
+
     // Fetch summaries for top articles (get thumbnails and descriptions)
-    const enrichedArticles = await enrichArticles(articles);
+    console.log(`[Scraper] Enriching articles with Wikipedia high-res images...`);
+    const enrichedArticles = await enrichArticles(categorizedArticles);
 
     // Insert all articles
     const stmt = db.prepare(`
-      INSERT INTO trending_articles (title, views, rank, timestamp, article_url, thumbnail_url, description)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO trending_articles (title, views, rank, timestamp, article_url, thumbnail_url, originalimage_url, description, category)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     for (let i = 0; i < enrichedArticles.length; i++) {
@@ -67,7 +110,9 @@ async function fetchTrendingArticles() {
         timestamp,
         articleUrl,
         item.thumbnail || null,
+        item.originalimage || null,
         item.description || null,
+        item.category || '#General'
       ]);
     }
 
@@ -75,7 +120,7 @@ async function fetchTrendingArticles() {
     saveDb();
 
     console.log(
-      `[Scraper] Successfully stored ${enrichedArticles.length} articles at ${timestamp}`
+      `[Scraper] Successfully stored ${enrichedArticles.length} articles with metadata & AI categories at ${timestamp}`
     );
   } catch (error) {
     console.error(`[Scraper] Error: ${error.message}`);
@@ -94,7 +139,7 @@ async function enrichArticles(articles) {
           article.article.startsWith("Special:") ||
           article.article === "Main_Page"
         ) {
-          return { ...article, thumbnail: null, description: null };
+          return { ...article, thumbnail: null, originalimage: null, description: null };
         }
 
         const summaryUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(article.article)}`;
@@ -107,14 +152,15 @@ async function enrichArticles(articles) {
           return {
             ...article,
             thumbnail: summary.thumbnail?.source || null,
+            originalimage: summary.originalimage?.source || summary.thumbnail?.source || null,
             description: summary.extract
               ? summary.extract.substring(0, 200)
               : null,
           };
         }
-        return { ...article, thumbnail: null, description: null };
+        return { ...article, thumbnail: null, originalimage: null, description: null };
       } catch {
-        return { ...article, thumbnail: null, description: null };
+        return { ...article, thumbnail: null, originalimage: null, description: null };
       }
     });
 

@@ -86,7 +86,7 @@ app.get("/api/trending", async (req, res) => {
 
     const latestTimestamp = latestResult[0].values[0][0];
     const articlesResult = db.exec(
-      "SELECT id, title, views, rank, timestamp, article_url, thumbnail_url, description FROM trending_articles WHERE timestamp = ? ORDER BY rank ASC",
+      "SELECT id, title, views, rank, timestamp, article_url, thumbnail_url, originalimage_url, description, category FROM trending_articles WHERE timestamp = ? ORDER BY rank ASC",
       [latestTimestamp]
     );
 
