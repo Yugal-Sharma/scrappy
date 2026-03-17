@@ -43,7 +43,7 @@ async function categorizeArticlesBatch(articles: Article[]): Promise<Article[]> 
     if (process.env.GEMINI_API_KEY) {
         try {
             const ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
-            const model = ai.getGenerativeModel({ model: "gemini-2.0-flash" });
+            const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" });
             
             const prompt = `Analyze the following Wikipedia titles and categorize them into ONE of these exact categories:
             ${CATEGORIES.join(", ")}
@@ -52,7 +52,7 @@ async function categorizeArticlesBatch(articles: Article[]): Promise<Article[]> 
             1. If it's an Actor/Celebrity/Athlete, assign to #Entertainment or #General.
             2. #TradeAndTariffs must be economics/business only.
             
-            Return JSON: { "Title": "#Category" }
+            Return ONLY a valid JSON object: { "Title": "#Category" }
             
             Titles: ${articles.map(a => a.article.replace(/_/g, " ")).join(" | ")}`;
 
@@ -60,9 +60,9 @@ async function categorizeArticlesBatch(articles: Article[]): Promise<Article[]> 
             const response = await result.response;
             let text = response.text();
             
-            // Clean JSON
-            text = text.replace(/```json|```/g, "").trim();
-            const catMap = JSON.parse(text);
+            // Clean JSON from potential markdown blocks or extra text
+            const jsonMatch = text.match(/\{[\s\S]*\}/);
+            const catMap = jsonMatch ? JSON.parse(jsonMatch[0]) : {};
 
             return articles.map(a => {
                 const title = a.article.replace(/_/g, " ");
