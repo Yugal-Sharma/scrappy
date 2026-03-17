@@ -1,0 +1,17 @@
+{
+  "name": "wiki-trending-backend",
+  "version": "1.0.0",
+  "description": "Wikipedia Trending Posts Scraper Backend",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^4.22.1",
+    "node-cron": "^3.0.3",
+    "socket.io": "^4.8.3",
+    "sql.js": "^1.14.1"
+  }
+}
