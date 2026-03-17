@@ -83,7 +83,7 @@ export default function CategoryExplorePage() {
       <div className="flex h-screen items-center justify-center bg-[#0a0a0a]">
         <div className="flex flex-col items-center gap-4">
           <Activity className="h-10 w-10 text-emerald-500 animate-pulse" />
-          <div className="text-xl font-bold font-[family-name:var(--font-playfair)] text-white">Loading Intelligence...</div>
+          <div className="text-xl font-bold font-(family-name:--font-playfair) text-white">Loading Intelligence...</div>
         </div>
       </div>
     );
@@ -94,7 +94,7 @@ export default function CategoryExplorePage() {
       <div className="flex h-screen items-center justify-center bg-[#0a0a0a] p-6">
         <div className="flex flex-col items-center text-center max-w-md">
           <Sparkles className="h-12 w-12 text-zinc-600 mb-4" />
-          <h1 className="text-3xl font-bold font-[family-name:var(--font-playfair)] text-white mb-2">No active trends</h1>
+          <h1 className="text-3xl font-bold font-(family-name:--font-playfair) text-white mb-2">No active trends</h1>
           <p className="text-zinc-400">Our scraper hasn't detected enough viral momentum in {dbCategory} right now. Check back in 30 minutes.</p>
         </div>
       </div>
@@ -102,7 +102,7 @@ export default function CategoryExplorePage() {
   }
 
   return (
-    <div className="relative h-screen w-full bg-black overflow-hidden font-[family-name:var(--font-inter)] select-none">
+    <div className="relative h-screen w-full bg-black overflow-hidden font-(family-name:--font-inter) select-none">
       
       {/* Absolute Header Overlay */}
       <div className="absolute top-0 left-0 right-0 p-6 z-30 pointer-events-none flex justify-between items-start">
@@ -135,8 +135,8 @@ export default function CategoryExplorePage() {
                     className="object-cover opacity-80"
                   />
                   {/* Heavy Gradient for text readability */}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black via-black/60 to-transparent/10" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30" />
+                  <div className="absolute inset-0 bg-linear-to-t from-black via-black/60 to-transparent/10" />
+                  <div className="absolute inset-0 bg-linear-to-t from-black/80 via-transparent to-black/30" />
                 </div>
 
                 {/* Content Overlay */}
@@ -151,7 +151,7 @@ export default function CategoryExplorePage() {
                      </span>
                   </div>
 
-                  <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4 leading-[1.1] font-[family-name:var(--font-playfair)] tracking-tight">
+                  <h2 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-4 leading-[1.1] font-(family-name:--font-playfair) tracking-tight">
                     {article.title}
                   </h2>
                   
@@ -209,7 +209,7 @@ export default function CategoryExplorePage() {
                 <span className="text-sm font-bold tracking-wider uppercase">Strategic Insight</span>
              </div>
              
-             <h3 className="text-3xl font-bold text-white mb-6 font-[family-name:var(--font-playfair)] leading-tight">{insightData.title}</h3>
+             <h3 className="text-3xl font-bold text-white mb-6 font-(family-name:--font-playfair) leading-tight">{insightData.title}</h3>
              
              {insightLoading ? (
                 <div className="flex flex-col gap-4">

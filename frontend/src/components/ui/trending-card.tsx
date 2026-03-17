@@ -70,7 +70,7 @@ export function TrendingCard({ title, views, url, rank, image, category = "#Gene
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
           />
           {/* Magazine Dark Gradient Overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/80 to-transparent" />
+          <div className="absolute inset-0 bg-linear-to-t from-[#0a0a0a] via-[#0a0a0a]/80 to-transparent" />
         </div>
         
         {/* Rank & Category Badges */}
@@ -85,7 +85,7 @@ export function TrendingCard({ title, views, url, rank, image, category = "#Gene
 
         {/* Glassmorphic Content Block */}
         <div className="relative z-10 p-5 w-full">
-          <h3 className={`font-[family-name:var(--font-playfair)] tracking-tight text-white mb-3 line-clamp-3 ${
+          <h3 className={`font-(family-name:--font-playfair) tracking-tight text-white mb-3 line-clamp-3 ${
             isHero ? "text-3xl md:text-5xl font-bold" : "text-xl font-semibold"
           }`}>
             {title}
@@ -113,7 +113,7 @@ export function TrendingCard({ title, views, url, rank, image, category = "#Gene
           >
             <div className="relative h-48 w-full">
                <Image src={heroImage} alt={title} fill className="object-cover opacity-60" />
-               <div className="absolute inset-0 bg-gradient-to-t from-[#111111] to-transparent" />
+               <div className="absolute inset-0 bg-linear-to-t from-[#111111] to-transparent" />
                <button 
                   onClick={() => setIsInsightOpen(false)}
                   className="absolute top-4 right-4 rounded-full p-2 bg-black/50 text-white hover:bg-black/80 backdrop-blur-md transition-colors z-20"
@@ -127,7 +127,7 @@ export function TrendingCard({ title, views, url, rank, image, category = "#Gene
                 <Sparkles className="h-5 w-5" />
                 <span className="text-sm font-semibold tracking-wider uppercase">AI Insight</span>
               </div>
-              <h4 className="mb-6 font-[family-name:var(--font-playfair)] text-3xl font-bold text-white leading-tight">{title}</h4>
+              <h4 className="mb-6 font-(family-name:--font-playfair) text-3xl font-bold text-white leading-tight">{title}</h4>
               
               <div className="rounded-xl bg-white/5 border border-white/10 p-5 backdrop-blur-md">
                 {insightLoading ? (

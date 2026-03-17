@@ -32,7 +32,7 @@ export function Sidebar() {
         <div className="h-8 w-8 rounded-full bg-emerald-500 flex items-center justify-center">
             <Globe className="h-5 w-5 text-black" />
         </div>
-        <span className="text-xl font-bold font-[family-name:var(--font-playfair)] tracking-wide text-white">Hub</span>
+        <span className="text-xl font-bold font-(family-name:--font-playfair) tracking-wide text-white">Hub</span>
       </div>
 
       <div className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-4">Discovery</div>

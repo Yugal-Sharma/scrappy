@@ -65,13 +65,13 @@ export default function WikipediaDashboard() {
   const topEvents = remainingArticles.slice(0, 4);
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] py-12 px-4 sm:px-6 lg:px-8 font-[family-name:var(--font-inter)] selection:bg-emerald-500/30">
+    <div className="min-h-screen bg-[#0a0a0a] py-12 px-4 sm:px-6 lg:px-8 font-(family-name:--font-inter) selection:bg-emerald-500/30">
       <div className="mx-auto max-w-[1400px]">
         
         {/* Header Section */}
         <div className="mb-12 flex flex-col items-start justify-between gap-6 md:flex-row md:items-end">
           <div>
-            <h1 className="text-4xl font-bold tracking-tight text-white sm:text-5xl font-[family-name:var(--font-playfair)]">
+            <h1 className="text-4xl font-bold tracking-tight text-white sm:text-5xl font-(family-name:--font-playfair)">
               Discovery Hub
             </h1>
             <p className="mt-3 text-lg text-zinc-400">
@@ -159,7 +159,7 @@ export default function WikipediaDashboard() {
               <div className="sticky top-12 bg-zinc-900/40 border border-white/10 rounded-3xl p-6 backdrop-blur-xl">
                  <div className="flex items-center gap-3 mb-8">
                     <Globe className="h-6 w-6 text-emerald-400" />
-                    <h2 className="text-2xl font-bold text-white font-[family-name:var(--font-playfair)]">Daily Briefing</h2>
+                    <h2 className="text-2xl font-bold text-white font-(family-name:--font-playfair)">Daily Briefing</h2>
                  </div>
                  
                  <div className="flex flex-col gap-6 relative">
@@ -174,7 +174,7 @@ export default function WikipediaDashboard() {
                         </div>
                         
                         <div className="text-xs font-bold text-emerald-400 mb-1 uppercase tracking-wider">{event.category}</div>
-                        <h4 className="text-white font-semibold leading-snug mb-2 font-[family-name:var(--font-playfair)] text-lg">{event.title}</h4>
+                        <h4 className="text-white font-semibold leading-snug mb-2 font-(family-name:--font-playfair) text-lg">{event.title}</h4>
                         <p className="text-sm text-zinc-400 line-clamp-3">
                           {event.description || "No description available for this trending topic."}
                         </p>
@@ -191,7 +191,7 @@ export default function WikipediaDashboard() {
 
       {/* Live Agent Console Section */}
       <div className="mx-auto max-w-[1400px] pb-12 mt-20 border-t border-white/10 pt-16">
-        <h2 className="text-2xl font-bold tracking-tight text-white mb-2 font-[family-name:var(--font-playfair)]">
+        <h2 className="text-2xl font-bold tracking-tight text-white mb-2 font-(family-name:--font-playfair)">
           System Overview
         </h2>
         <p className="text-zinc-400 text-sm mb-8">
