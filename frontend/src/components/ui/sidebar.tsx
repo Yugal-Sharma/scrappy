@@ -10,7 +10,10 @@ import {
   ShieldAlert, 
   Plane, 
   Film, 
-  Microscope 
+  Microscope,
+  Music,
+  Car,
+  Building2
 } from "lucide-react";
 
 export function Sidebar() {
@@ -18,12 +21,15 @@ export function Sidebar() {
 
   const links = [
     { name: "Live Dashboard", href: "/dashboard", icon: Home },
+    { name: "Global Corporate", href: "/explore/corporate", icon: Building2 },
     { name: "Geopolitics", href: "/explore/geopolitics", icon: Globe },
     { name: "Trade & Tariffs", href: "/explore/tradeandtariffs", icon: TrendingUp },
     { name: "Security & Terror", href: "/explore/securityandterrorism", icon: ShieldAlert },
-    { name: "Global Tourism", href: "/explore/globaltourism", icon: Plane },
-    { name: "Entertainment", href: "/explore/entertainment", icon: Film },
+    { name: "Automotive", href: "/explore/automotive", icon: Car },
+    { name: "Movies & Actors", href: "/explore/movies", icon: Film },
+    { name: "Music & Singers", href: "/explore/music", icon: Music },
     { name: "Science", href: "/explore/science", icon: Microscope },
+    { name: "Global Tourism", href: "/explore/globaltourism", icon: Plane },
   ];
 
   return (

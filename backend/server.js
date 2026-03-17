@@ -192,6 +192,64 @@ app.get("/api/article/:title/history", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch article history" });
   }
 });
+// Get top trending keywords for the Live Ticker
+app.get("/api/ticker", async (req, res) => {
+  try {
+    const db = await getDb();
+    
+    // Get the latest timestamp
+    const latestResult = db.exec(
+      "SELECT timestamp FROM trending_articles ORDER BY timestamp DESC LIMIT 1"
+    );
+
+    if (latestResult.length === 0 || !latestResult[0].values.length) {
+      return res.json({ keywords: [] });
+    }
+
+    const latestTimestamp = latestResult[0].values[0][0];
+    
+    // Fetch top 30 titles from the latest scrape
+    const titlesResult = db.exec(
+      "SELECT title FROM trending_articles WHERE timestamp = ? LIMIT 30",
+      [latestTimestamp]
+    );
+
+    if (titlesResult.length === 0 || !titlesResult[0].values.length) {
+      return res.json({ keywords: [] });
+    }
+
+    // Extract keywords
+    const stopWords = new Set(["the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for", "of", "with", "by", "from", "is", "are", "was", "were", "stock", "analysis", "update"]);
+    const wordCounts = {};
+    
+    titlesResult[0].values.forEach(row => {
+      const title = row[0];
+      if (typeof title === 'string') {
+          const words = title.split(' ');
+          words.forEach(w => {
+            const clean = w.replace(/[^a-zA-Z0-9]/g, '');
+            if (clean.length > 3 && !stopWords.has(clean.toLowerCase())) {
+                wordCounts[clean.toUpperCase()] = (wordCounts[clean.toUpperCase()] || 0) + 1;
+            }
+          });
+      }
+    });
+
+    // Sort and get top 15
+    const topKeywords = Object.entries(wordCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 15)
+      .map(entry => entry[0]);
+      
+    // Mix in some hardcoded financial indices for the Bloomber look
+    const mixedTicker = ["^GSPC", ...topKeywords.slice(0, 5), "^DJI", ...topKeywords.slice(5, 10), "BTC-USD", ...topKeywords.slice(10)];
+
+    res.json({ keywords: mixedTicker });
+  } catch (error) {
+    console.error("Error fetching ticker data:", error);
+    res.status(500).json({ error: "Failed to fetch ticker data" });
+  }
+});
 
 // Manual trigger for scraping
 app.post("/api/scrape", async (req, res) => {

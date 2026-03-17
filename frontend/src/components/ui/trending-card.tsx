@@ -20,6 +20,10 @@ const CATEGORY_IMAGES: Record<string, string> = {
   "#GlobalTourism": "https://images.unsplash.com/photo-1488646953014-85cb44e25828?q=80&w=800",
   "#Entertainment": "https://images.unsplash.com/photo-1603190287605-e6ade32fa852?q=80&w=800",
   "#Science": "https://images.unsplash.com/photo-1532094349884-543bc11b234d?q=80&w=800",
+  "#Corporate": "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=800",
+  "#Automotive": "https://images.unsplash.com/photo-1494976388531-d1058494cdd8?q=80&w=800",
+  "#Movies": "https://images.unsplash.com/photo-1603190287605-e6ade32fa852?q=80&w=800",
+  "#Music": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=800",
   "#General": "https://images.unsplash.com/photo-1457369804613-52c61a468e7d?q=80&w=800",
 };
 
@@ -56,7 +60,7 @@ export function TrendingCard({ title, views, url, rank, image, category = "#Gene
     <>
       <div 
         onClick={loadInsight}
-        className={`group cursor-pointer relative flex flex-col justify-end overflow-hidden rounded-2xl border border-white/10 bg-zinc-900/50 transition-all hover:border-white/20 hover:shadow-2xl ${
+        className={`group cursor-pointer relative flex flex-col justify-end overflow-hidden rounded-2xl border border-white/10 bg-zinc-900/50 transition-all duration-300 hover:border-white/30 hover:-translate-y-2 hover:shadow-[0_20px_50px_rgba(16,185,129,0.15)] ${
           isHero ? "min-h-[400px] md:min-h-[500px]" : "min-h-[280px]"
         }`}
       >

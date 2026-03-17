@@ -1,6 +1,7 @@
 const { getDb, saveDb } = require("./database");
 require("dotenv").config();
 const { GoogleGenAI } = require("@google/genai");
+const { fetchTrendingFinance, fetchAutomotiveNews, fetchMoviesNews, fetchMusicNews } = require("./scraper-extensions");
 
 const USER_AGENT =
   "WikiTrendingScraper/3.0 (https://github.com/scraper; contact@example.com)";
@@ -14,7 +15,7 @@ async function categorizeArticlesBatch(articles) {
 
   const titles = articles.map((a) => a.article.replace(/_/g, " "));
   const prompt = `Categorize the following Wikipedia article titles into ONE of the following strict tags ONLY: 
-#Geopolitics, #TradeAndTariffs, #SecurityAndTerrorism, #GlobalTourism, #Entertainment, #Science, #General.
+#Geopolitics, #TradeAndTariffs, #SecurityAndTerrorism, #GlobalTourism, #Entertainment, #Science, #Corporate, #Automotive, #Movies, #Music, #General.
 Return ONLY a valid JSON array of strings in the exact same order as the input list.
 
 Titles:
@@ -85,7 +86,28 @@ async function fetchTrendingArticles() {
     const categorizedArticles = await categorizeArticlesBatch(articles);
 
     console.log(`[Scraper] Enriching articles with Wikipedia high-res pageimages...`);
-    const enrichedArticles = await enrichArticles(categorizedArticles);
+    let enrichedArticles = await enrichArticles(categorizedArticles);
+
+    // Fetch from External Advanced Sources
+    console.log(`[Scraper] Merging External Sources (Yahoo Finance, RSS)...`);
+    const mixinData = await Promise.all([
+      fetchTrendingFinance(),
+      fetchAutomotiveNews(),
+      fetchMoviesNews(),
+      fetchMusicNews()
+    ]);
+
+    // Flatten external results
+    const externalArticles = mixinData.flat().map((item, index) => {
+        return {
+            ...item,
+            rank: enrichedArticles.length + index + 1, // Append to bottom of global rankings
+            article_url: `https://www.google.com/search?q=${encodeURIComponent(item.article)}` // Search fallback
+        };
+    });
+
+    // Merge both arrays
+    enrichedArticles = [...enrichedArticles, ...externalArticles];
 
     const stmt = db.prepare(`
       INSERT INTO trending_articles (title, views, rank, timestamp, article_url, thumbnail_url, originalimage_url, description, category)
@@ -94,11 +116,13 @@ async function fetchTrendingArticles() {
 
     for (let i = 0; i < enrichedArticles.length; i++) {
       const item = enrichedArticles[i];
-      const title = item.article.replace(/_/g, " ");
-      const articleUrl = `https://en.wikipedia.org/wiki/${encodeURIComponent(item.article)}`;
+      const title = item.article || item.title;
+      // external sources already have spaces in title, genericize
+      const cleanTitle = typeof title === 'string' ? title.replace(/_/g, " ") : "Trending";
+      const articleUrl = item.article_url || `https://en.wikipedia.org/wiki/${encodeURIComponent(title)}`;
 
       stmt.run([
-        title,
+        cleanTitle,
         item.views,
         i + 1,
         timestamp,
@@ -114,7 +138,7 @@ async function fetchTrendingArticles() {
     saveDb();
 
     console.log(
-      `[Scraper] Successfully stored ${enrichedArticles.length} articles with high-res metadata & strict AI tags at ${timestamp}`
+      `[Scraper] Successfully stored ${enrichedArticles.length} combined multi-source articles at ${timestamp}`
     );
   } catch (error) {
     console.error(`[Scraper] Error: ${error.message}`);
